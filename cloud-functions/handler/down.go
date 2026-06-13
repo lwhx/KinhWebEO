@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"kinhweb-eo/config"
 	"kinhweb-eo/result"
@@ -135,49 +134,15 @@ func downLocal(c *gin.Context, intfid int, fid string, BDUSS string, mode string
 // downRemote 远程解析模式
 func downRemote(c *gin.Context, intfid int, fid string, BDUSS string, acclink string, mode string) {
 	log.Printf("当前处于远程解析模式")
-	res, err := utils.Get(acclink, "netdisk;Mo", "")
-	if err != nil {
-		log.Printf("请求加速链接失败: %v", err)
-		result.Failed(c, 500, "获取下载地址失败")
-		return
+	isVIP := config.Cfg.User.IsVIP
+	vip := "0"
+	if isVIP == 1 {
+		vip = "2"
 	}
-
-	var JsonData map[string]interface{}
-	if err := json.Unmarshal([]byte(res), &JsonData); err != nil {
-		log.Printf("解析Json失败 Url->%s", acclink)
-		result.Failed(c, 500, "获取失败")
-		return
-	}
-
-	// 兼容 string 和 float64 类型
-	var codeStr string
-	switch v := JsonData["code"].(type) {
-	case string:
-		codeStr = v
-	case float64:
-		codeStr = strconv.FormatFloat(v, 'f', 0, 64)
-	default:
-		log.Printf("加速链接返回了无效数据")
-		result.Failed(c, -1, "无效的加速链接")
-		return
-	}
-
-	intcode, err := strconv.Atoi(codeStr)
-	if err != nil {
-		log.Printf("加速链接返回了无效数据")
-		result.Failed(c, -1, "无效的加速链接")
-		return
-	}
-
-	if codeStr != "0" {
-		log.Printf("加速链接无效 Url->%s", acclink)
-		result.Failed(c, intcode, "无效的加速链接")
-		return
-	}
-
 	stoken := utils.GetStoken()
-	pdata := "bduss=" + BDUSS + "&stoken=" + stoken + "&fid=" + fid + "&ua=" + base64.StdEncoding.EncodeToString([]byte(c.Request.Header.Get("User-Agent")))
-	res, err = utils.Post(acclink, "KinhWeb", "", pdata)
+	pdata := "fid=" + fid + "&vip=" + vip
+	res, err := utils.Post(acclink, c.Request.Header.Get("User-Agent"), "BDUSS="+BDUSS+";STOKEN="+stoken, pdata)
+	log.Printf("请求加速链接返回: %s", res)
 	if err != nil {
 		log.Printf("请求加速链接失败: %v", err)
 		result.Failed(c, 500, "获取下载地址失败")
